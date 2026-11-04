@@ -1,0 +1,48 @@
+name: Build unsigned IPA release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild \
+            -project 27SoonTM.xcodeproj \
+            -scheme 27SoonTM \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          APP="build/DerivedData/Build/Products/Release-iphoneos/27SoonTM.app"
+          test -d "$APP"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          cd build/ipa
+          zip -qry "$GITHUB_WORKSPACE/27SoonTM-unsigned.ipa" Payload
+
+      - name: Attach IPA to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 27 Soon TM ${{ github.ref_name }}
+          body: "Unsigned IPA build. Not installable on an iPhone unless signed and provisioned."
+          files: 27SoonTM-unsigned.ipa
+          fail_on_unmatched_files: true
